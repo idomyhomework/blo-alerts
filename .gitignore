@@ -1,0 +1,27 @@
+# ¡EL .env NUNCA SE SUBE!
+.env
+.env.local
+.env.*.local
+
+# Secretos de servicios externos
+secrets/
+*.pem
+*.key
+fcm-service-account*.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Node
+node_modules/
+.expo/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
