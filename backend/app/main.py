@@ -1,5 +1,6 @@
 import logging
 
+from backend.app.routers import notices
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -28,6 +29,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(auth.router)
+app.include_router(notices.router)
 
 
 @app.get("/healthz")

@@ -2,7 +2,7 @@ import logging
 
 from backend.app.models import user
 from backend.app.schemas import notice
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
@@ -194,3 +194,34 @@ async def delete_notice(
         "notice.archived",
         extra={"notice_id": str(notice.id), "by": str(current_user.id)},
     )
+
+
+@router.post("/{notice_id}/media", response_model=NoticeOut)
+async def upload_media(
+    notice_id: UUID,
+    file: UploadFile = File(...),
+    kind: str = Form(...),  # "image" | "video"
+    user: User = Depends(require_guard),
+    db: AsyncSession = Depends(get_session),
+):
+    """Sube imagen o vídeo y lo asocia al aviso. Solo borradores."""
+    if kind not in ("image", "video"):
+        raise HTTPException(400, "kind debe ser 'image' o 'video'")
+    notice = await db.get(Notice, notice_id)
+    if notice is None or notice.status != NoticeStatus.DRAFT:
+        raise HTTPException(404, "Aviso no encontrado o ya publicado.")
+    if notice.created_by != user.id and user.role != UserRole.SUPERADMIN:
+        raise HTTPException(403, "No puedes modificar este aviso.")
+    # Leer el archivo entero a memoria. Para archivos grandes (vídeo de 100MB)
+    # conviene streaming, pero por simplicidad lo leemos completo aquí.
+    contents = await file.read()
+    try:
+        key = media_service.upload(contents, file.filename or "media", kind)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    # Append al array. SQLAlchemy + ARRAY no detecta in-place mutations
+    # bien, así que asignamos una lista nueva.
+    notice.media_keys = list(notice.media_keys) + [key]
+    await db.commit()
+    await db.refresh(notice)
+    return _to_out(notice)
